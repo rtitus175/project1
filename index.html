@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Testament Story Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8F9FA;
+        }
+        .card {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+        }
+        .option-button {
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .option-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="game-container" class="w-full max-w-lg">
+        <div class="card bg-white p-6 md:p-8 rounded-xl border border-gray-200">
+            
+            <h1 class="text-3xl font-bold text-center text-indigo-700 mb-2">New Testament Heroes</h1>
+            <p class="text-center text-gray-500 mb-6">Match the person to the action they performed during Jesus's life.</p>
+            
+            <div id="quiz-area" class="space-y-6">
+                
+                <!-- Question -->
+                <div id="question-card" class="bg-indigo-50 p-5 rounded-lg border-2 border-indigo-200">
+                    <p class="text-lg font-semibold text-indigo-800 mb-3">Question <span id="current-question-number">1</span> of <span id="total-questions"></span>:</p>
+                    <p id="question-text" class="text-xl font-medium text-gray-800">Loading question...</p>
+                </div>
+                
+                <!-- Options -->
+                <div id="options-container" class="space-y-3">
+                    <!-- Options will be injected here -->
+                </div>
+
+                <!-- Feedback Message -->
+                <div id="feedback-message" class="min-h-[50px] flex items-center justify-center p-3 text-center rounded-lg font-semibold hidden">
+                    <!-- Feedback text will appear here -->
+                </div>
+
+                <!-- Next Button -->
+                <button id="next-button" onclick="nextQuestion()" class="w-full option-button bg-indigo-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:opacity-50" disabled>
+                    Next Question
+                </button>
+            </div>
+
+            <!-- Score and Status -->
+            <div class="mt-8 pt-4 border-t border-gray-200 flex justify-between items-center">
+                <p class="text-lg font-medium text-gray-700">Score: <span id="score-display" class="text-indigo-600 font-bold">0</span></p>
+                <p id="game-status" class="text-sm text-gray-400">Game in progress</p>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Global Variables
+        const QUIZ_DATA = [
+            {
+                letter: 'A',
+                person: 'Andrew',
+                action: 'Who was the first disciple called by Jesus and brought his brother, Peter, to Him?',
+                correctAnswer: 'A: Andrew (First Disciple)',
+                options: [
+                    'A: Andrew (First Disciple)',
+                    'B: Bartholomew (Disciple)',
+                    'C: Caiaphas (High Priest)',
+                    'Z: Zacchaeus (Tax Collector)'
+                ]
+            },
+            {
+                letter: 'M',
+                person: 'Mary Magdalene',
+                action: 'Who was the first person to witness the empty tomb and speak to the resurrected Jesus?',
+                correctAnswer: 'M: Mary Magdalene (First Witness)',
+                options: [
+                    'J: John the Baptist (Preacher)',
+                    'L: Lazarus (Raised from Dead)',
+                    'M: Mary Magdalene (First Witness)',
+                    'N: Nicodemus (Pharisee)'
+                ]
+            },
+            {
+                letter: 'P',
+                person: 'Peter',
+                action: 'Who denied Jesus three times on the night of His arrest, but later became a great leader?',
+                correctAnswer: 'P: Peter (The Rock)',
+                options: [
+                    'C: Caiaphas (High Priest)',
+                    'P: Peter (The Rock)',
+                    'D: Dismas (The Good Thief)',
+                    'E: Elizabeth (Mother of John)'
+                ]
+            },
+            {
+                letter: 'J',
+                person: 'John the Baptist',
+                action: 'Who was sent ahead to prepare the way and baptize Jesus in the Jordan River?',
+                correctAnswer: 'J: John the Baptist (Preacher)',
+                options: [
+                    'J: John the Baptist (Preacher)',
+                    'Z: Zacchaeus (Tax Collector)',
+                    'L: Lazarus (Raised from Dead)',
+                    'A: Andrew (First Disciple)'
+                ]
+            },
+            {
+                letter: 'Z',
+                person: 'Zacchaeus',
+                action: 'Who was the tax collector who climbed a sycamore tree just to get a glimpse of Jesus?',
+                correctAnswer: 'Z: Zacchaeus (Tax Collector)',
+                options: [
+                    'N: Nicodemus (Pharisee)',
+                    'M: Mary Magdalene (First Witness)',
+                    'Z: Zacchaeus (Tax Collector)',
+                    'P: Peter (The Rock)'
+                ]
+            },
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let gameActive = true;
+
+        const totalQuestions = QUIZ_DATA.length;
+        document.getElementById('total-questions').textContent = totalQuestions;
+
+        // Utility function to shuffle an array
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= totalQuestions) {
+                endGame();
+                return;
+            }
+
+            const questionData = QUIZ_DATA[currentQuestionIndex];
+            const optionsContainer = document.getElementById('options-container');
+            const feedbackMessage = document.getElementById('feedback-message');
+            const nextButton = document.getElementById('next-button');
+
+            // Reset UI
+            document.getElementById('current-question-number').textContent = currentQuestionIndex + 1;
+            document.getElementById('question-text').textContent = questionData.action;
+            optionsContainer.innerHTML = '';
+            feedbackMessage.classList.add('hidden');
+            nextButton.disabled = true;
+            nextButton.textContent = 'Next Question';
+            
+            // Shuffle options for better replayability
+            const shuffledOptions = shuffleArray([...questionData.options]);
+
+            shuffledOptions.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                button.className = 'option-button w-full text-left bg-gray-100 text-gray-800 py-3 px-4 rounded-lg font-medium border-2 border-gray-300 hover:bg-indigo-100';
+                button.setAttribute('data-answer', option);
+                button.onclick = () => checkAnswer(option, questionData.correctAnswer, button);
+                optionsContainer.appendChild(button);
+            });
+        }
+
+        function checkAnswer(selectedOption, correctAnswer, clickedButton) {
+            if (!gameActive) return;
+
+            const isCorrect = selectedOption === correctAnswer;
+            const feedbackMessage = document.getElementById('feedback-message');
+            const nextButton = document.getElementById('next-button');
+            const allOptionButtons = document.querySelectorAll('.option-button');
+
+            // Disable all buttons after a choice is made
+            allOptionButtons.forEach(button => {
+                button.disabled = true;
+                button.onclick = null; // Remove handler
+                // Highlight the correct answer
+                if (button.getAttribute('data-answer') === correctAnswer) {
+                    button.classList.remove('bg-gray-100', 'border-gray-300', 'hover:bg-indigo-100');
+                    button.classList.add('bg-green-100', 'border-green-500');
+                }
+            });
+
+            feedbackMessage.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+
+            if (isCorrect) {
+                score++;
+                document.getElementById('score-display').textContent = score;
+                clickedButton.classList.remove('bg-gray-100', 'border-gray-300', 'bg-green-100');
+                clickedButton.classList.add('bg-green-500', 'text-white');
+                feedbackMessage.classList.add('bg-green-100', 'text-green-700');
+                feedbackMessage.innerHTML = '<span class="text-xl">🙌</span> Correct! Well done.';
+            } else {
+                // User requested: "the answer to appear after each mistake"
+                clickedButton.classList.remove('bg-gray-100', 'border-gray-300');
+                clickedButton.classList.add('bg-red-500', 'text-white');
+                feedbackMessage.classList.add('bg-red-100', 'text-red-700');
+                feedbackMessage.innerHTML = `<span class="text-xl">❌</span> Wrong. The correct person is: <strong>${correctAnswer}</strong>.`;
+            }
+
+            nextButton.disabled = false;
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        function endGame() {
+            gameActive = false;
+            const quizArea = document.getElementById('quiz-area');
+            const gameStatus = document.getElementById('game-status');
+            const scorePercent = Math.round((score / totalQuestions) * 100);
+
+            quizArea.innerHTML = `
+                <div class="text-center p-8 bg-blue-50 rounded-lg border-2 border-blue-300">
+                    <h2 class="text-2xl font-bold text-blue-700 mb-4">Game Over!</h2>
+                    <p class="text-xl text-gray-800">You completed the quiz.</p>
+                    <p class="text-3xl font-extrabold text-indigo-600 mt-2">${score} / ${totalQuestions}</p>
+                    <p class="text-lg text-gray-600 mt-1">(${scorePercent}% correct)</p>
+                    <button onclick="window.location.reload()" class="mt-6 option-button bg-green-600 text-white py-2 px-4 rounded-lg font-bold hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300">
+                        Play Again
+                    </button>
+                </div>
+            `;
+            gameStatus.textContent = 'Finished!';
+        }
+
+        // Initialize the game
+        window.onload = loadQuestion;
+    </script>
+
+</body>
+</html>
